@@ -83,8 +83,9 @@ varying float vElevation;
 
 float getElevation(vec3 _position) {
 
-  //General elevation
   float elevation = 0.0;
+  
+  //General elevation
   elevation +=cnoise(vec3(
     _position.xz * 0.3,
     0.0
