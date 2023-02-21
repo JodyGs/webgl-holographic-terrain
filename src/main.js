@@ -3,7 +3,8 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import * as dat from 'lil-gui'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer'
-import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass'
+// import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass'
+import { BokehPass } from './Passes/BokehPass'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass'
 import terrainVertexShader from './shaders/terrain/vertex.glsl'
 import terrainFragmentShader from './shaders/terrain/fragment.glsl'
@@ -42,7 +43,7 @@ window.addEventListener('resize', () => {
 
   // Update camera
   camera.aspect = sizes.width / sizes.height
-  camera.instance.updateProjectionMatrix()
+  camera.updateProjectionMatrix()
 
   // Update renderer
   renderer.setSize(sizes.width, sizes.height)
@@ -146,18 +147,46 @@ terrain.geometry.rotateX(- Math.PI * 0.5)
 // Material
 terrain.material = new THREE.ShaderMaterial({
   transparent: true,
-  blending: THREE.AdditiveBlending,
+  // blending: THREE.AdditiveBlending,
   side: THREE.DoubleSide,
   vertexShader: terrainVertexShader,
   fragmentShader: terrainFragmentShader,
   uniforms: {
     uTexture: { value: terrain.texture.instance },
-    uElevation: { value: 2}
+    uTextureFrequency: { value: 10 },
+    uElevation: { value: 2},
+    uTime: {value: 0}
   }
 })
 
+// // Depth material
+// const uniforms = THREE.UniformsUtils.merge([
+//     THREE.UniformsLib.common,
+//     THREE.UniformsLib.displacementmap
+// ])
+// for(const uniformKey in terrain.uniforms)
+// {
+//     uniforms[uniformKey] = terrain.uniforms[uniformKey]
+// }
+
+// terrain.depthMaterial = new THREE.ShaderMaterial({
+//     uniforms: uniforms,
+//     vertexShader: terrainDepthVertexShader,
+//     fragmentShader: terrainDepthFragmentShader
+// })
+
+// terrain.depthMaterial.depthPacking = THREE.RGBADepthPacking
+// terrain.depthMaterial.blending = THREE.NoBlending
+
+// // Mesh
+// terrain.mesh = new THREE.Mesh(terrain.geometry, terrain.material)
+// terrain.mesh.scale.set(10, 10, 10)
+// terrain.mesh.userData.depthMaterial = terrain.depthMaterial
+// scene.add(terrain.mesh)
+
 
 terrainFolder.add(terrain.material.uniforms.uElevation, "value").min(0).max(5).step(0.001).name("uElevation")
+terrainFolder.add(terrain.material.uniforms.uTextureFrequency, "value").min(0.01).max(50).step(0.01).name("uTextureFrequency")
 
 // Mesh
 terrain.mesh = new THREE.Mesh(terrain.geometry, terrain.material)
@@ -219,6 +248,9 @@ const tick = () => {
   const elapsedTime = clock.getElapsedTime()
   const deltaTime = elapsedTime - lastElapsedTime
   lastElapsedTime = elapsedTime
+
+  // Update terrain
+  terrain.material.uniforms.uTime.value = elapsedTime
 
   // Update controls
   controls.update()
