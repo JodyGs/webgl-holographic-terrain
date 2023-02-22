@@ -8,6 +8,8 @@ import { BokehPass } from './Passes/BokehPass'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass'
 import terrainVertexShader from './shaders/terrain/vertex.glsl'
 import terrainFragmentShader from './shaders/terrain/fragment.glsl'
+import terrainDepthVertexShader from './shaders/terrain/vertex.glsl'
+import terrainDepthFragmentShader from './shaders/terrain/fragment.glsl'
 import { LinearFilter, WebGLRenderTarget } from 'three'
 
 /**
@@ -48,7 +50,7 @@ window.addEventListener('resize', () => {
   // Update renderer
   renderer.setSize(sizes.width, sizes.height)
   renderer.setPixelRatio(sizes.pixelRatio)
-  
+
   // Update effect composer
   effectComposer.setSize(sizes.width, sizes.height)
   effectComposer.setPixelRatio(sizes.pixelRatio)
@@ -144,6 +146,15 @@ textureFolder.add(terrain.texture, 'smallLineWAlpha').min(0).max(1).step(0.001).
 terrain.geometry = new THREE.PlaneGeometry(1, 1, 1000, 1000)
 terrain.geometry.rotateX(- Math.PI * 0.5)
 
+// Uniforms
+terrain.uniforms = {
+  uTexture: { value: terrain.texture.instance },
+  uTextureFrequency: { value: 10 },
+  uElevation: { value: 2 },
+  uTime: { value: 0 }
+}
+
+
 // Material
 terrain.material = new THREE.ShaderMaterial({
   transparent: true,
@@ -151,42 +162,36 @@ terrain.material = new THREE.ShaderMaterial({
   side: THREE.DoubleSide,
   vertexShader: terrainVertexShader,
   fragmentShader: terrainFragmentShader,
-  uniforms: {
-    uTexture: { value: terrain.texture.instance },
-    uTextureFrequency: { value: 10 },
-    uElevation: { value: 2},
-    uTime: {value: 0}
-  }
+  uniforms: terrain.uniforms
 })
 
-// // Depth material
-// const uniforms = THREE.UniformsUtils.merge([
-//     THREE.UniformsLib.common,
-//     THREE.UniformsLib.displacementmap
-// ])
-// for(const uniformKey in terrain.uniforms)
-// {
-//     uniforms[uniformKey] = terrain.uniforms[uniformKey]
-// }
+// Depth material
+const uniforms = THREE.UniformsUtils.merge([
+  THREE.UniformsLib.common,
+  THREE.UniformsLib.displacementmap
+])
+for (const uniformKey in terrain.uniforms) {
+  uniforms[uniformKey] = terrain.uniforms[uniformKey]
+}
 
-// terrain.depthMaterial = new THREE.ShaderMaterial({
-//     uniforms: uniforms,
-//     vertexShader: terrainDepthVertexShader,
-//     fragmentShader: terrainDepthFragmentShader
-// })
+terrain.depthMaterial = new THREE.ShaderMaterial({
+  uniforms: uniforms,
+  vertexShader: terrainDepthVertexShader,
+  fragmentShader: terrainDepthFragmentShader
+})
 
-// terrain.depthMaterial.depthPacking = THREE.RGBADepthPacking
-// terrain.depthMaterial.blending = THREE.NoBlending
+terrain.depthMaterial.depthPacking = THREE.RGBADepthPacking
+terrain.depthMaterial.blending = THREE.NoBlending
 
-// // Mesh
-// terrain.mesh = new THREE.Mesh(terrain.geometry, terrain.material)
-// terrain.mesh.scale.set(10, 10, 10)
-// terrain.mesh.userData.depthMaterial = terrain.depthMaterial
-// scene.add(terrain.mesh)
+// Mesh
+terrain.mesh = new THREE.Mesh(terrain.geometry, terrain.material)
+terrain.mesh.scale.set(10, 10, 10)
+terrain.mesh.userData.depthMaterial = terrain.depthMaterial
+scene.add(terrain.mesh)
 
 
-terrainFolder.add(terrain.material.uniforms.uElevation, "value").min(0).max(5).step(0.001).name("uElevation")
-terrainFolder.add(terrain.material.uniforms.uTextureFrequency, "value").min(0.01).max(50).step(0.01).name("uTextureFrequency")
+terrainFolder.add(terrain.uniforms.uElevation, "value").min(0).max(5).step(0.001).name("uElevation")
+terrainFolder.add(terrain.uniforms.uTextureFrequency, "value").min(0.01).max(50).step(0.01).name("uTextureFrequency")
 
 // Mesh
 terrain.mesh = new THREE.Mesh(terrain.geometry, terrain.material)
@@ -231,7 +236,7 @@ const bokehPass = new BokehPass(scene, camera, {
 })
 effectComposer.addPass(bokehPass)
 
-const folder = gui.addFolder( 'BokehPass' );
+const folder = gui.addFolder('BokehPass');
 folder.add(bokehPass, "enabled").name('bokeh enabled')
 folder.add(bokehPass.materialBokeh.uniforms.focus, "value").min(0).max(10).step(0.001).name('focus')
 folder.add(bokehPass.materialBokeh.uniforms.aperture, "value").min(0.0002).max(0.1).step(0.0001).name('aperture')

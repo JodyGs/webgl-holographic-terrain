@@ -109,6 +109,7 @@ float getElevation(vec2 _position) {
   return elevation;
 }
 
+
 void main() {
   vec4 modelPosition = modelMatrix * vec4(position, 1.0);
 
