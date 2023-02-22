@@ -123,6 +123,7 @@ terrain.texture.update = () => {
 
   for (let i = 0; i < smallLinesCount; i++) {
     terrain.texture.context.globalAlpha = terrain.texture.smallLineWAlpha
+    terrain.texture.context.fillStyle = '#00ffff'
     terrain.texture.context.fillRect(
       0,
       actualBigLineWidth + Math.round((terrain.texture.height - actualBigLineWidth) / terrain.texture.linesCount) * (i + 1),
@@ -168,7 +169,8 @@ terrain.material = new THREE.ShaderMaterial({
 // Depth material
 const uniforms = THREE.UniformsUtils.merge([
   THREE.UniformsLib.common,
-  THREE.UniformsLib.displacementmap
+  THREE.UniformsLib.displacementmap,
+  terrain.uniforms
 ])
 for (const uniformKey in terrain.uniforms) {
   uniforms[uniformKey] = terrain.uniforms[uniformKey]
@@ -203,7 +205,7 @@ scene.add(terrain.mesh)
  */
 const renderer = new THREE.WebGLRenderer({
   canvas: canvas,
-  antialias: true,
+  // antialias: true,
 })
 renderer.setClearColor(guiDummy.clearColor, 1)
 renderer.outputEncoding = THREE.sRGBEncoding
@@ -236,6 +238,9 @@ const bokehPass = new BokehPass(scene, camera, {
 })
 effectComposer.addPass(bokehPass)
 
+
+
+
 const folder = gui.addFolder('BokehPass');
 folder.add(bokehPass, "enabled").name('bokeh enabled')
 folder.add(bokehPass.materialBokeh.uniforms.focus, "value").min(0).max(10).step(0.001).name('focus')
@@ -255,7 +260,7 @@ const tick = () => {
   lastElapsedTime = elapsedTime
 
   // Update terrain
-  terrain.material.uniforms.uTime.value = elapsedTime
+  terrain.uniforms.uTime.value = elapsedTime
 
   // Update controls
   controls.update()

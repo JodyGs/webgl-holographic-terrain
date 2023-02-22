@@ -10,7 +10,6 @@ vec4 taylorInvSqrt(vec4 r) {
 vec3 fade(vec3 t) {
   return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
 }
-
 float cnoise(vec3 P) {
   vec3 Pi0 = floor(P); // Integer part for indexing
   vec3 Pi1 = Pi0 + vec3(1.0); // Integer part + 1
@@ -79,10 +78,13 @@ float cnoise(vec3 P) {
   return 2.2 * n_xyz;
 }
 
+
 uniform float uTime;
 
 varying float vElevation;
+varying vec2 vUv;
 
+// GetElevation
 float getElevation(vec2 _position) {
 
   float elevation = 0.0;
@@ -105,16 +107,15 @@ float getElevation(vec2 _position) {
   )) * 0.2;
 
   elevation *= 2.0;
+  vUv = uv;
 
   return elevation;
 }
-
 
 void main() {
   vec4 modelPosition = modelMatrix * vec4(position, 1.0);
 
   float elevation = getElevation(modelPosition.xz);
-
   modelPosition.y += elevation;
 
   vec4 viewPosition = viewMatrix * modelPosition;
