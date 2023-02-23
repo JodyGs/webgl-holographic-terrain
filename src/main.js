@@ -3,14 +3,14 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import * as dat from 'lil-gui'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer'
-// import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass'
 import { BokehPass } from './Passes/BokehPass'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass'
 import terrainVertexShader from './shaders/terrain/vertex.glsl'
 import terrainFragmentShader from './shaders/terrain/fragment.glsl'
 import terrainDepthVertexShader from './shaders/terrain/vertex.glsl'
 import terrainDepthFragmentShader from './shaders/terrain/fragment.glsl'
-import { LinearFilter, WebGLRenderTarget } from 'three'
+import overlayVertexShader from './shaders/overlay/vertex.glsl'
+import overlayFragmentShader from './shaders/overlay/fragment.glsl'
 
 /**
  * Base
@@ -44,8 +44,8 @@ window.addEventListener('resize', () => {
   sizes.pixelRatio = Math.min(window.devicePixelRatio, 2)
 
   // Update camera
-  camera.aspect = sizes.width / sizes.height
-  camera.updateProjectionMatrix()
+  camera.instance.aspect = sizes.width / sizes.height
+  camera.instance.updateProjectionMatrix()
 
   // Update renderer
   renderer.setSize(sizes.width, sizes.height)
@@ -67,7 +67,7 @@ window.addEventListener('resize', () => {
 const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100)
 camera.position.x = 1
 camera.position.y = 1
-camera.position.z = 1
+camera.position.z = 0
 scene.add(camera)
 
 // Controls
@@ -82,11 +82,12 @@ const terrainFolder = gui.addFolder('Terrain Material')
 
 // Texture
 terrain.texture = {}
+terrain.texture.visible = false
 terrain.texture.linesCount = 5
-terrain.texture.bigLineWidth = 0.06
-terrain.texture.smallLineWAlpha = 0.5
+terrain.texture.bigLineWidth = 0.08
 terrain.texture.smallLineWidth = 0.01
-terrain.texture.width = 32
+terrain.texture.smallLineAlpha = 0.5
+terrain.texture.width = 1
 terrain.texture.height = 128
 terrain.texture.canvas = document.createElement('canvas')
 terrain.texture.canvas.width = terrain.texture.width
@@ -94,15 +95,20 @@ terrain.texture.canvas.height = terrain.texture.height
 terrain.texture.canvas.style.position = 'fixed'
 terrain.texture.canvas.style.top = 0
 terrain.texture.canvas.style.left = 0
+terrain.texture.canvas.style.width = '50px'
+terrain.texture.canvas.style.height = `${terrain.texture.height}px`
 terrain.texture.canvas.style.zIndex = 1
-document.body.append(terrain.texture.canvas)
+
+if (terrain.texture.visible) {
+  document.body.append(terrain.texture.canvas)
+}
 
 terrain.texture.context = terrain.texture.canvas.getContext('2d')
 
 terrain.texture.instance = new THREE.CanvasTexture(terrain.texture.canvas)
 terrain.texture.instance.wrapS = THREE.RepeatWrapping
 terrain.texture.instance.wrapT = THREE.RepeatWrapping
-terrain.texture.instance.mabFilter = THREE.NearestFilter
+terrain.texture.instance.magFilter = THREE.NearestFilter
 
 terrain.texture.update = () => {
   terrain.texture.context.clearRect(0, 0, terrain.texture.width, terrain.texture.height)
@@ -112,17 +118,19 @@ terrain.texture.update = () => {
   terrain.texture.context.globalAlpha = 1
   terrain.texture.context.fillStyle = '#ffffff'
 
-  terrain.texture.context.fillRect(0,
+  terrain.texture.context.fillRect(
+    0,
     0,
     terrain.texture.width,
-    actualBigLineWidth)
+    actualBigLineWidth
+  )
 
-  //Small lines
+  // Small lines
   const actualSmallLineWidth = Math.round(terrain.texture.height * terrain.texture.smallLineWidth)
   const smallLinesCount = terrain.texture.linesCount - 1
 
   for (let i = 0; i < smallLinesCount; i++) {
-    terrain.texture.context.globalAlpha = terrain.texture.smallLineWAlpha
+    terrain.texture.context.globalAlpha = terrain.texture.smallLineAlpha
     terrain.texture.context.fillStyle = '#00ffff'
     terrain.texture.context.fillRect(
       0,
@@ -132,16 +140,26 @@ terrain.texture.update = () => {
     )
   }
 
-  // Update texture inistance
+  // Update texture instance
   terrain.texture.instance.needsUpdate = true
 }
 
 terrain.texture.update()
+
+
 const textureFolder = gui.addFolder('Terrain Texture')
 textureFolder.add(terrain.texture, 'linesCount').min(1).max(10).step(1).onChange(terrain.texture.update)
 textureFolder.add(terrain.texture, 'bigLineWidth').min(0).max(0.1).step(0.0001).onChange(terrain.texture.update)
 textureFolder.add(terrain.texture, 'smallLineWidth').min(0).max(0.1).step(0.0001).onChange(terrain.texture.update)
-textureFolder.add(terrain.texture, 'smallLineWAlpha').min(0).max(1).step(0.001).onChange(terrain.texture.update)
+textureFolder.add(terrain.texture, 'smallLineAlpha').min(0).max(1).step(0.001).onChange(terrain.texture.update)
+textureFolder.add(terrain.texture, 'visible').name('Terrain texture').onChange(() => {
+  if (terrain.texture.visible) {
+    document.body.append(terrain.texture.canvas)
+  }
+  else {
+    document.body.removeChild(terrain.texture.canvas)
+  }
+})
 
 // Geometry
 terrain.geometry = new THREE.PlaneGeometry(1, 1, 1000, 1000)
@@ -169,6 +187,22 @@ terrain.uniforms = {
   uHslLightnessFrequency: { value: 20.0 }
 }
 
+terrainFolder.add(terrain.uniforms.uElevation, "value").min(0).max(5).step(0.001).name("uElevation")
+terrainFolder.add(terrain.uniforms.uElevationValley, "value").min(0).max(1).step(0.001).name("uElevationValley")
+terrainFolder.add(terrain.uniforms.uElevationValleyFrequency, "value").min(0).max(10).step(0.001).name("uElevationValleyFrequency")
+terrainFolder.add(terrain.uniforms.uElevationGeneral, "value").min(0).max(1).step(0.001).name("uElevationGeneral")
+terrainFolder.add(terrain.uniforms.uElevationGeneralFrequency, "value").min(0).max(10).step(0.001).name("uElevationGeneralFrequency")
+terrainFolder.add(terrain.uniforms.uElevationDetails, "value").min(0).max(1).step(0.001).name("uElevationDetails")
+terrainFolder.add(terrain.uniforms.uElevationDetailsFrequency, "value").min(0).max(10).step(0.001).name("uElevationDetailsFrequency")
+terrainFolder.add(terrain.uniforms.uTextureFrequency, "value").min(0.01).max(50).step(0.01).name("uTextureFrequency")
+terrainFolder.add(terrain.uniforms.uHslHue, "value").min(0).max(1).step(0.001).name("uHslHue")
+terrainFolder.add(terrain.uniforms.uHslHueOffset, "value").min(0).max(1).step(0.001).name("uHslHueOffset")
+terrainFolder.add(terrain.uniforms.uHslHueFrequency, "value").min(0).max(50).step(0.01).name("uHslHueFrequency")
+terrainFolder.add(terrain.uniforms.uHslLightness, "value").min(0).max(1).step(0.001).name("uHslLightness")
+terrainFolder.add(terrain.uniforms.uHslLightnessVariation, "value").min(0).max(1).step(0.001).name("uHslLightnessVariation")
+terrainFolder.add(terrain.uniforms.uHslLightnessFrequency, "value").min(0).max(50).step(0.01).name("uHslLightnessFrequency")
+terrainFolder.add(terrain.uniforms.uHslTimeFrequency, "value").min(0).max(0.2).step(0.001).name("uHslTimeFrequency")
+terrainFolder.add(terrain.uniforms.uTextureOffset, "value").min(0).max(1).step(0.001).name("uTextureOffset")
 
 // Material
 terrain.material = new THREE.ShaderMaterial({
@@ -183,8 +217,7 @@ terrain.material = new THREE.ShaderMaterial({
 // Depth material
 const uniforms = THREE.UniformsUtils.merge([
   THREE.UniformsLib.common,
-  THREE.UniformsLib.displacementmap,
-  terrain.uniforms
+  THREE.UniformsLib.displacementmap
 ])
 for (const uniformKey in terrain.uniforms) {
   uniforms[uniformKey] = terrain.uniforms[uniformKey]
@@ -205,26 +238,41 @@ terrain.mesh.scale.set(10, 10, 10)
 terrain.mesh.userData.depthMaterial = terrain.depthMaterial
 scene.add(terrain.mesh)
 
+/**
+ * Overlay
+ */
+const vignette = {}
+vignette.color = {}
+vignette.color.value = '#6800ff'
+vignette.color.instance = new THREE.Color(vignette.color.value)
+vignette.material = new THREE.ShaderMaterial({
+  uniforms: {
+    uColor: {value: vignette.color.instance},
+    uMultiplier: {value: 1.16},
+    uOffset: {value: -0.176}
+  },
+  vertexShader: overlayVertexShader,
+  fragmentShader: overlayFragmentShader,
+  transparent: true,
+  depthTest: false
+})
+vignette.geometry = new THREE.PlaneGeometry(2, 2)
+vignette.mesh = new THREE.Mesh(vignette.geometry, vignette.material)
+vignette.mesh.userData.noBokeh = true
+vignette.mesh.frustumCulled = false
 
-terrainFolder.add(terrain.uniforms.uElevation, "value").min(0).max(5).step(0.001).name("uElevation")
-terrainFolder.add(terrain.uniforms.uTextureFrequency, "value").min(0.01).max(50).step(0.01).name("uTextureFrequency")
-terrainFolder.add(terrain.uniforms.uHslHue, "value").min(0).max(1).step(0.001).name("uHslHue")
-terrainFolder.add(terrain.uniforms.uHslHueOffset, "value").min(0).max(1).step(0.001).name("uHslHueOffset")
-terrainFolder.add(terrain.uniforms.uHslHueFrequency, "value").min(0).max(50).step(0.01).name("uHslHueFrequency")
-terrainFolder.add(terrain.uniforms.uHslLightness, "value").min(0).max(1).step(0.001).name("uHslLightness")
-terrainFolder.add(terrain.uniforms.uHslLightnessVariation, "value").min(0).max(1).step(0.001).name("uHslLightnessVariation")
-terrainFolder.add(terrain.uniforms.uHslLightnessFrequency, "value").min(0).max(50).step(0.01).name("uHslLightnessFrequency")
-terrainFolder.add(terrain.uniforms.uHslTimeFrequency, "value").min(0).max(0.2).step(0.001).name("uHslTimeFrequency")
-terrainFolder.add(terrain.uniforms.uTextureOffset, "value").min(0).max(1).step(0.001).name("uTextureOffset")
+scene.add(vignette.mesh)
 
-// Mesh
-terrain.mesh = new THREE.Mesh(terrain.geometry, terrain.material)
-terrain.mesh.scale.set(10, 10, 10)
-scene.add(terrain.mesh)
+const vignetteFolder = gui.addFolder('Vignette');
+vignetteFolder.add(vignette.material.uniforms.uMultiplier, "value").min(0).max(5).step(0.001).name('uMultiplier')
+vignetteFolder.add(vignette.material.uniforms.uOffset, "value").min(-2).max(2).step(0.001).name('uOffset')
+
+
 
 /**
  * Renderer
  */
+// Renderer
 const renderer = new THREE.WebGLRenderer({
   canvas: canvas,
   // antialias: true,
