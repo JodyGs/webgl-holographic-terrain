@@ -83,7 +83,7 @@ const terrainFolder = gui.addFolder('Terrain Material')
 // Texture
 terrain.texture = {}
 terrain.texture.linesCount = 5
-terrain.texture.bigLineWidth = 0.04
+terrain.texture.bigLineWidth = 0.06
 terrain.texture.smallLineWAlpha = 0.5
 terrain.texture.smallLineWidth = 0.01
 terrain.texture.width = 32
@@ -110,8 +110,8 @@ terrain.texture.update = () => {
   // Big line
   const actualBigLineWidth = Math.round(terrain.texture.height * terrain.texture.bigLineWidth)
   terrain.texture.context.globalAlpha = 1
-
   terrain.texture.context.fillStyle = '#ffffff'
+  
   terrain.texture.context.fillRect(0,
     0,
     terrain.texture.width,
@@ -150,9 +150,23 @@ terrain.geometry.rotateX(- Math.PI * 0.5)
 // Uniforms
 terrain.uniforms = {
   uTexture: { value: terrain.texture.instance },
-  uTextureFrequency: { value: 10 },
-  uElevation: { value: 2 },
-  uTime: { value: 0 }
+    uElevation: { value: 2 },
+    uElevationValley: { value: 0.4 },
+    uElevationValleyFrequency: { value: 1.5 },
+    uElevationGeneral: { value: 0.2 },
+    uElevationGeneralFrequency: { value: 0.2 },
+    uElevationDetails: { value: 0.2 },
+    uElevationDetailsFrequency: { value: 2.012 },
+    uTextureFrequency: { value: 10 },
+    uTextureOffset: { value: 0.585 },
+    uTime: { value: 0 },
+    uHslHue: { value: 1.0 },
+    uHslHueOffset: { value: 0.0 },
+    uHslHueFrequency: { value: 10.0 },
+    uHslTimeFrequency: { value: 0.05 },
+    uHslLightness: { value: 0.75 },
+    uHslLightnessVariation: { value: 0.25 },
+    uHslLightnessFrequency: { value: 20.0 }
 }
 
 
@@ -194,6 +208,12 @@ scene.add(terrain.mesh)
 
 terrainFolder.add(terrain.uniforms.uElevation, "value").min(0).max(5).step(0.001).name("uElevation")
 terrainFolder.add(terrain.uniforms.uTextureFrequency, "value").min(0.01).max(50).step(0.01).name("uTextureFrequency")
+terrainFolder.add(terrain.uniforms.uHslHue, "value").min(0).max(1).step(0.001).name("uHslHue")
+terrainFolder.add(terrain.uniforms.uHslHueOffset, "value").min(0).max(1).step(0.001).name("uHslHueOffset")
+terrainFolder.add(terrain.uniforms.uHslHueFrequency, "value").min(0).max(50).step(0.01).name("uHslHueFrequency")
+terrainFolder.add(terrain.uniforms.uHslLightness, "value").min(0).max(1).step(0.001).name("uHslLightness")
+terrainFolder.add(terrain.uniforms.uHslLightnessVariation, "value").min(0).max(1).step(0.001).name("uHslLightnessVariation")
+terrainFolder.add(terrain.uniforms.uHslLightnessFrequency, "value").min(0).max(50).step(0.01).name("uHslLightnessFrequency")
 
 // Mesh
 terrain.mesh = new THREE.Mesh(terrain.geometry, terrain.material)
