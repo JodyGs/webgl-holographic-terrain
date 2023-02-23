@@ -160,6 +160,7 @@ terrain.uniforms = {
     uTextureFrequency: { value: 10 },
     uTextureOffset: { value: 0.585 },
     uTime: { value: 0 },
+    uHslTimeFrequency: { value: 0.05},
     uHslHue: { value: 1.0 },
     uHslHueOffset: { value: 0.0 },
     uHslHueFrequency: { value: 10.0 },
@@ -214,6 +215,7 @@ terrainFolder.add(terrain.uniforms.uHslHueFrequency, "value").min(0).max(50).ste
 terrainFolder.add(terrain.uniforms.uHslLightness, "value").min(0).max(1).step(0.001).name("uHslLightness")
 terrainFolder.add(terrain.uniforms.uHslLightnessVariation, "value").min(0).max(1).step(0.001).name("uHslLightnessVariation")
 terrainFolder.add(terrain.uniforms.uHslLightnessFrequency, "value").min(0).max(50).step(0.01).name("uHslLightnessFrequency")
+terrainFolder.add(terrain.uniforms.uHslTimeFrequency, "value").min(0).max(0.2).step(0.001).name("uHslTimeFrequency")
 
 // Mesh
 terrain.mesh = new THREE.Mesh(terrain.geometry, terrain.material)
@@ -250,7 +252,7 @@ effectComposer.addPass(renderPass)
 // Bokeh Pass
 const bokehPass = new BokehPass(scene, camera, {
   focus: 1.0,
-  aperture: 0.025,
+  aperture: 0.01,
   maxblur: 0.01,
 
   width: sizes.width * sizes.pixelRatio,

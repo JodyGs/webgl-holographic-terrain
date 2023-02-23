@@ -107,20 +107,24 @@ float getElevation(vec2 _position) {
   )) * 0.2;
 
   elevation *= 2.0;
-  vUv = uv;
 
   return elevation;
 }
 
-void main() {
-  vec4 modelPosition = modelMatrix * vec4(position, 1.0);
+void main()
+{
+    vec4 modelPosition = modelMatrix * vec4(position, 1.0);
 
-  float elevation = getElevation(modelPosition.xz);
-  modelPosition.y += elevation;
+    // Elevation
+    float elevation = getElevation(modelPosition.xz + vec2(uTime * 0.03, uTime * 0.0));
 
-  vec4 viewPosition = viewMatrix * modelPosition;
-  vec4 projectedPosition = projectionMatrix * viewPosition;
-  gl_Position = projectedPosition;
+    modelPosition.y += elevation;
 
-  vElevation = elevation;
+    vec4 viewPosition = viewMatrix * modelPosition;
+    vec4 projectionPosition = projectionMatrix * viewPosition;
+    gl_Position = projectionPosition;
+
+    // Varyings
+    vElevation = elevation;
+    vUv = uv;
 }

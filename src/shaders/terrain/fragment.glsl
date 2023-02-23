@@ -42,8 +42,8 @@ float getPerlinNoise2d(vec2 P) {
 }
 
 uniform sampler2D uTexture;
+uniform float uTime;
 uniform float uTextureFrequency;
-uniform float uTextureOffset;
 uniform float uHslHue;
 uniform float uHslHueOffset;
 uniform float uHslHueFrequency;
@@ -67,7 +67,7 @@ vec3 hslToRgb(in vec3 c) {
 vec3 getRainbowColor()
 {
     vec2 uv = vUv;
-    // uv.y += uTime * uHslTimeFrequency;
+    uv.y += uTime * uHslTimeFrequency;
 
     float hue = uHslHueOffset + getPerlinNoise2d(uv * uHslHueFrequency) * uHslHue;
     float lightness = uHslLightness + getPerlinNoise2d(uv * uHslLightnessFrequency + 1234.5) * uHslLightnessVariation;
@@ -76,6 +76,7 @@ vec3 getRainbowColor()
 
     return rainbowColor;
 }
+
 
 void main() {
   vec3 uColor = vec3(1.0, 1.0, 1.0);
