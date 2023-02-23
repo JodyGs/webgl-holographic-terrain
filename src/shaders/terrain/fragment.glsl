@@ -41,9 +41,11 @@ float getPerlinNoise2d(vec2 P) {
   return 2.3 * n_xy;
 }
 
+
 uniform sampler2D uTexture;
 uniform float uTime;
 uniform float uTextureFrequency;
+uniform float uTextureOffset;
 uniform float uHslHue;
 uniform float uHslHueOffset;
 uniform float uHslHueFrequency;
@@ -78,16 +80,20 @@ vec3 getRainbowColor()
 }
 
 
-void main() {
-  vec3 uColor = vec3(1.0, 1.0, 1.0);
+void main()
+{
+    vec3 uColor = vec3(1.0, 1.0, 1.0);
 
-  vec3 rainbowColor = getRainbowColor();
-  vec4 textureColor = texture2D(uTexture, vec2(0.0, vElevation * uTextureFrequency));
+    vec3 rainbowColor = getRainbowColor();
+    vec4 textureColor = texture2D(uTexture, vec2(0.0, vElevation * uTextureFrequency + uTextureOffset));
 
-  // float alpha = mod(vElevation * 10.0, 1.0);
-  // alpha = step(0.95, alpha);
+    vec3 color = mix(uColor, rainbowColor, textureColor.r);
 
-  vec3 color = mix(uColor, rainbowColor, textureColor.r);
+    float fadeSideAmplitude = 0.2;
+    float sideAlpha = 1.0 - max(
+        smoothstep(0.5 - fadeSideAmplitude, 0.5, abs(vUv.x - 0.5)),
+        smoothstep(0.5 - fadeSideAmplitude, 0.5, abs(vUv.y - 0.5))
+    );
 
-  gl_FragColor = vec4(color, textureColor.a);
+    gl_FragColor = vec4(color, textureColor.a * sideAlpha);
 }
