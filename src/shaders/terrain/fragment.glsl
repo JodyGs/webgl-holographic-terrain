@@ -41,7 +41,6 @@ float getPerlinNoise2d(vec2 P) {
   return 2.3 * n_xy;
 }
 
-
 uniform sampler2D uTexture;
 uniform float uTime;
 uniform float uTextureFrequency;
@@ -54,10 +53,8 @@ uniform float uHslLightness;
 uniform float uHslLightnessVariation;
 uniform float uHslLightnessFrequency;
 
-
 varying float vElevation;
 varying vec2 vUv;
-
 
 // https://www.shadertoy.com/view/XljGzV
 vec3 hslToRgb(in vec3 c) {
@@ -78,7 +75,6 @@ vec3 getRainbowColor()
 
     return rainbowColor;
 }
-
 
 void main()
 {

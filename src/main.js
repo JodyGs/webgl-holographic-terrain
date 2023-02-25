@@ -27,6 +27,18 @@ const scene = new THREE.Scene()
 const gui = new dat.GUI({ width: 300 })
 const guiDummy = {}
 guiDummy.clearColor = '#080024'
+let showDebug = true
+
+const debugMenu = document.querySelector('.menu')
+debugMenu.addEventListener('click', () => {
+  if (showDebug) {
+    gui.hide()
+    showDebug = false
+  } else {
+    gui.show()
+    showDebug = true
+  }
+})
 
 /**
  * Sizes
@@ -65,14 +77,17 @@ window.addEventListener('resize', () => {
  */
 // Base camera
 const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100)
+camera.rotation.reorder('YXZ')
 camera.position.x = 1
 camera.position.y = 1
 camera.position.z = 0
 scene.add(camera)
 
-// Controls
-const controls = new OrbitControls(camera, canvas)
-controls.enableDamping = true
+window.camera = camera
+
+// // OrbitControls
+// const orbitControls = new OrbitControls(camera, canvas)
+// orbitControls.enableDamping = true
 
 /**
  * Terrain
@@ -247,9 +262,9 @@ vignette.color.value = '#6800ff'
 vignette.color.instance = new THREE.Color(vignette.color.value)
 vignette.material = new THREE.ShaderMaterial({
   uniforms: {
-    uColor: {value: vignette.color.instance},
-    uMultiplier: {value: 1.16},
-    uOffset: {value: -0.176}
+    uColor: { value: vignette.color.instance },
+    uMultiplier: { value: 1.16 },
+    uOffset: { value: -0.176 }
   },
   vertexShader: overlayVertexShader,
   fragmentShader: overlayFragmentShader,
@@ -317,6 +332,45 @@ folder.add(bokehPass.materialBokeh.uniforms.focus, "value").min(0).max(10).step(
 folder.add(bokehPass.materialBokeh.uniforms.aperture, "value").min(0.0002).max(0.1).step(0.0001).name('aperture')
 folder.add(bokehPass.materialBokeh.uniforms.maxblur, "value").min(0).max(0.02).step(0.0001).name('maxblur')
 
+// View
+const view = {}
+view.settings = [
+  {
+    position: { x: 0, y: 2.124, z: -0.172 },
+    rotation: { x: -1.489, y: -Math.PI, z: 0 },
+    focus: 2.14
+  },
+  {
+    position: { x: 1, y: 1.1, z: 0 },
+    rotation: { x: -0.833, y: 1.596, z: 1.651 },
+    focus: 1.1
+  },
+  {
+    position: { x: 1, y: 0.87, z: -0.97 },
+    rotation: { x: -0.638, y: 2.33, z: 0 },
+    focus: 1.36
+  },
+  {
+    position: { x: -1.43, y: 0.33, z: -0.144 },
+    rotation: { x: -0.31, y: -1.67, z: 0 },
+    focus: 1.25
+  }
+]
+
+view.change = (_index) => {
+  const viewSetting = view.settings[_index]
+
+  camera.position.copy(viewSetting.position)
+  camera.rotation.x = (viewSetting.rotation.x)
+  camera.rotation.y = (viewSetting.rotation.y)
+
+  bokehPass.materialBokeh.uniforms.focus.value = viewSetting.focus
+}
+
+view.change(0)
+
+const viewFolder = gui.addFolder('View')
+viewFolder.add()
 
 /**
  * Animate
@@ -333,7 +387,7 @@ const tick = () => {
   terrain.uniforms.uTime.value = elapsedTime
 
   // Update controls
-  controls.update()
+  // orbitControls.update()
 
   // Render
   renderer.render(scene, camera)
