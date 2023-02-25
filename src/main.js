@@ -1,10 +1,12 @@
 import './style.css'
+import gsap from 'gsap'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import * as dat from 'lil-gui'
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer'
 import { BokehPass } from './Passes/BokehPass'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass'
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import terrainVertexShader from './shaders/terrain/vertex.glsl'
 import terrainFragmentShader from './shaders/terrain/fragment.glsl'
 import terrainDepthVertexShader from './shaders/terrain/vertex.glsl'
@@ -75,19 +77,23 @@ window.addEventListener('resize', () => {
 /**
  * Camera
  */
-// Base camera
-const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100)
+const camera = {}
+camera.position = new THREE.Vector3()
+camera.rotation = new THREE.Euler()
 camera.rotation.reorder('YXZ')
-camera.position.x = 1
-camera.position.y = 1
-camera.position.z = 0
-scene.add(camera)
 
-window.camera = camera
+// Base camera
+camera.instance = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100)
+camera.instance.rotation.reorder('YXZ')
+scene.add(camera.instance)
 
-// // OrbitControls
-// const orbitControls = new OrbitControls(camera, canvas)
-// orbitControls.enableDamping = true
+// Orbit controls
+const orbitControls = new OrbitControls(camera.instance, canvas)
+orbitControls.enabled = false
+orbitControls.enableDamping = true
+
+const cameraFolder = gui.addFolder('Camera')
+cameraFolder.add(orbitControls, 'enabled').name('orbitControls')
 
 /**
  * Terrain
@@ -202,6 +208,7 @@ terrain.uniforms = {
   uHslLightnessFrequency: { value: 20.0 }
 }
 
+
 terrainFolder.add(terrain.uniforms.uElevation, "value").min(0).max(5).step(0.001).name("uElevation")
 terrainFolder.add(terrain.uniforms.uElevationValley, "value").min(0).max(1).step(0.001).name("uElevationValley")
 terrainFolder.add(terrain.uniforms.uElevationValleyFrequency, "value").min(0).max(10).step(0.001).name("uElevationValleyFrequency")
@@ -256,31 +263,45 @@ scene.add(terrain.mesh)
 /**
  * Overlay
  */
-const vignette = {}
-vignette.color = {}
-vignette.color.value = '#6800ff'
-vignette.color.instance = new THREE.Color(vignette.color.value)
-vignette.material = new THREE.ShaderMaterial({
-  uniforms: {
-    uColor: { value: vignette.color.instance },
-    uMultiplier: { value: 1.16 },
-    uOffset: { value: -0.176 }
+const overlay = {}
+
+overlay.vignetteColor = {}
+overlay.vignetteColor.value = '#4f1f96'
+overlay.vignetteColor.instance = new THREE.Color(overlay.vignetteColor.value)
+
+overlay.overlayColor = {}
+overlay.overlayColor.value = '#130621'
+overlay.overlayColor.instance = new THREE.Color(overlay.overlayColor.value)
+
+overlay.geometry = new THREE.PlaneGeometry(2, 2)
+
+overlay.material = new THREE.ShaderMaterial({
+  uniforms:
+  {
+    uVignetteColor: { value: overlay.vignetteColor.instance },
+    uVignetteMultiplier: { value: 1.16 },
+    uVignetteOffset: { value: - 1 },
+    uOverlayColor: { value: overlay.overlayColor.instance },
+    uOverlayAlpha: { value: 1 }
   },
   vertexShader: overlayVertexShader,
   fragmentShader: overlayFragmentShader,
   transparent: true,
   depthTest: false
 })
-vignette.geometry = new THREE.PlaneGeometry(2, 2)
-vignette.mesh = new THREE.Mesh(vignette.geometry, vignette.material)
-vignette.mesh.userData.noBokeh = true
-vignette.mesh.frustumCulled = false
+overlay.mesh = new THREE.Mesh(overlay.geometry, overlay.material)
+overlay.mesh.userData.noBokeh = true
+overlay.mesh.frustumCulled = false
+scene.add(overlay.mesh)
 
-scene.add(vignette.mesh)
+window.requestAnimationFrame(() => {
+  gsap.to(overlay.material.uniforms.uOverlayAlpha, { delay: 0.4, duration: 3, value: 0, ease: 'power2.out' })
+  gsap.to(overlay.material.uniforms.uVignetteOffset, { delay: 0.4, duration: 3, value: - 0.165, ease: 'power2.out' })
+})
 
 const vignetteFolder = gui.addFolder('Vignette');
-vignetteFolder.add(vignette.material.uniforms.uMultiplier, "value").min(0).max(5).step(0.001).name('uMultiplier')
-vignetteFolder.add(vignette.material.uniforms.uOffset, "value").min(-2).max(2).step(0.001).name('uOffset')
+vignetteFolder.add(overlay.material.uniforms.uVignetteMultiplier, "value").min(0).max(5).step(0.001).name('uMultiplier')
+vignetteFolder.add(overlay.material.uniforms.uVignetteOffset, "value").min(-2).max(2).step(0.001).name('uOffset')
 
 
 
@@ -298,33 +319,29 @@ renderer.setSize(sizes.width, sizes.height)
 renderer.setPixelRatio(sizes.pixelRatio)
 
 // EffectComposer
-const renderTarget = new THREE.WebGLRenderTarget(800, 600, {
-  minFilter: THREE.LinearFilter,
-  magFilter: THREE.LinearFilter,
-  format: THREE.RGBAFormat,
-  encoding: THREE.sRGBEncoding
-})
 const effectComposer = new EffectComposer(renderer)
 effectComposer.setSize(sizes.width, sizes.height)
 effectComposer.setPixelRatio(sizes.pixelRatio)
 
-// RenderPass
-const renderPass = new RenderPass(scene, camera)
+// Render pass
+const renderPass = new RenderPass(scene, camera.instance)
 effectComposer.addPass(renderPass)
 
-// Bokeh Pass
-const bokehPass = new BokehPass(scene, camera, {
-  focus: 1.0,
-  aperture: 0.01,
-  maxblur: 0.01,
+// Bokeh pass
+const bokehPass = new BokehPass(
+  scene,
+  camera.instance,
+  {
+    focus: 1.0,
+    aperture: 0.015,
+    maxblur: 0.01,
 
-  width: sizes.width * sizes.pixelRatio,
-  height: sizes.height * sizes.pixelRatio
-})
+    width: sizes.width * sizes.pixelRatio,
+    height: sizes.height * sizes.pixelRatio
+  }
+)
+
 effectComposer.addPass(bokehPass)
-
-
-
 
 const folder = gui.addFolder('BokehPass');
 folder.add(bokehPass, "enabled").name('bokeh enabled')
@@ -332,45 +349,171 @@ folder.add(bokehPass.materialBokeh.uniforms.focus, "value").min(0).max(10).step(
 folder.add(bokehPass.materialBokeh.uniforms.aperture, "value").min(0.0002).max(0.1).step(0.0001).name('aperture')
 folder.add(bokehPass.materialBokeh.uniforms.maxblur, "value").min(0).max(0.02).step(0.0001).name('maxblur')
 
-// View
+// Unreal bloom pass
+const unrealBloomPass = new UnrealBloomPass(new THREE.Vector2(sizes.width, sizes.height), 1.5, 0.4, 0.85)
+unrealBloomPass.enabled = false
+effectComposer.addPass(unrealBloomPass)
+
+/**
+ * View
+ */
 const view = {}
+view.index = 0
 view.settings = [
   {
-    position: { x: 0, y: 2.124, z: -0.172 },
-    rotation: { x: -1.489, y: -Math.PI, z: 0 },
-    focus: 2.14
+    position: { x: 0, y: 2.124, z: - 0.172 },
+    rotation: { x: -1.489, y: - Math.PI, z: 0 },
+    focus: 2.14,
+    parallaxMultiplier: 0.25
   },
   {
     position: { x: 1, y: 1.1, z: 0 },
     rotation: { x: -0.833, y: 1.596, z: 1.651 },
-    focus: 1.1
+    focus: 1.1,
+    parallaxMultiplier: 0.12
   },
   {
-    position: { x: 1, y: 0.87, z: -0.97 },
-    rotation: { x: -0.638, y: 2.33, z: 0 },
-    focus: 1.36
+    position: { x: 1, y: 0.87, z: - 0.97 },
+    rotation: { x: - 0.638, y: 2.33, z: 0 },
+    focus: 1.36,
+    parallaxMultiplier: 0.12
   },
   {
     position: { x: -1.43, y: 0.33, z: -0.144 },
-    rotation: { x: -0.31, y: -1.67, z: 0 },
-    focus: 1.25
+    rotation: { x: -0.312, y: -1.67, z: 0 },
+    focus: 1.25,
+    parallaxMultiplier: 0.12
+  }
+]
+view.current = view.settings[view.index]
+
+// Parallax
+view.parallax = {}
+view.parallax.target = {}
+view.parallax.target.x = 0
+view.parallax.target.y = 0
+view.parallax.eased = {}
+view.parallax.eased.x = 0
+view.parallax.eased.y = 0
+view.parallax.eased.multiplier = 4
+
+window.addEventListener('mousemove', (_event) => {
+  view.parallax.target.x = (_event.clientX / sizes.width - 0.5) * view.parallax.multiplier
+  view.parallax.target.y = - (_event.clientY / sizes.height - 0.5) * view.parallax.multiplier
+})
+
+// Apply
+view.apply = () => {
+  // Camera
+  camera.position.copy(view.current.position)
+  camera.rotation.x = view.current.rotation.x
+  camera.rotation.y = view.current.rotation.y
+
+  // Bokeh
+  bokehPass.materialBokeh.uniforms.focus.value = view.current.focus
+
+  // Parallax
+  view.parallax.multiplier = view.current.parallaxMultiplier
+}
+
+// Change
+view.change = (_index) => {
+  view.index = _index
+  view.current = view.settings[_index]
+
+  // Show overlay
+  gsap.to(
+    overlay.material.uniforms.uOverlayAlpha,
+    {
+      duration: 1.25,
+      value: 1,
+      ease: 'power2.inOut',
+      onComplete: () => {
+        view.apply()
+
+        // Hide overlay
+        gsap.to(
+          overlay.material.uniforms.uOverlayAlpha,
+          {
+            duration: 1,
+            value: 0,
+            ease: 'power2.inOut'
+          }
+        )
+      }
+    }
+  )
+}
+
+view.apply()
+
+window.setInterval(() => {
+  view.change((view.index + 1) % view.settings.length)
+}, 7500)
+
+// Focus animation
+const changeFocus = () => {
+  gsap.to(
+    bokehPass.materialBokeh.uniforms.focus,
+    {
+      duration: 0.5 + Math.random() * 3,
+      delay: 0.5 + Math.random() * 1,
+      ease: 'power2.inOut',
+      onComplete: changeFocus,
+      value: view.current.focus + Math.random() - 0.2
+    }
+  )
+}
+
+changeFocus()
+
+/**
+ * Presets
+ */
+const presets = {}
+presets.settings = [
+  {
+    vignetteColor: '#4f1f96',
+    overlayColor: '#130621',
+    clearColor: '#080024',
+    terrainHue: 1,
+    terrainHueOffset: 0
+  },
+  {
+    vignetteColor: '#590826',
+    overlayColor: '#21060b',
+    clearColor: '#240004',
+    terrainHue: 0.145,
+    terrainHueOffset: 0.86
+  },
+  {
+    vignetteColor: '#1f6a96',
+    overlayColor: '#050e1c',
+    clearColor: '#000324',
+    terrainHue: 0.12,
+    terrainHueOffset: 0.5
+  },
+  {
+    vignetteColor: '#1f9682',
+    overlayColor: '#02100c',
+    clearColor: '#00240c',
+    terrainHue: 0.12,
+    terrainHueOffset: 0.2
   }
 ]
 
-view.change = (_index) => {
-  const viewSetting = view.settings[_index]
+presets.apply = (_index) => {
+  const presetsSettings = presets.settings[_index]
 
-  camera.position.copy(viewSetting.position)
-  camera.rotation.x = (viewSetting.rotation.x)
-  camera.rotation.y = (viewSetting.rotation.y)
+  overlay.vignetteColor.instance.set(presetsSettings.vignetteColor)
 
-  bokehPass.materialBokeh.uniforms.focus.value = viewSetting.focus
+  overlay.overlayColor.instance.set(presetsSettings.overlayColor)
+
+  terrain.uniforms.uHslHue.value = presetsSettings.terrainHue
+  terrain.uniforms.uHslHueOffset.value = presetsSettings.terrainHueOffset
+
+  renderer.setClearColor(presetsSettings.clearColor, 1)
 }
-
-view.change(0)
-
-const viewFolder = gui.addFolder('View')
-viewFolder.add()
 
 /**
  * Animate
@@ -387,10 +530,23 @@ const tick = () => {
   terrain.uniforms.uTime.value = elapsedTime
 
   // Update controls
-  // orbitControls.update()
+  if (orbitControls.enabled) {
+    orbitControls.update()
+  }
+
+  // Camera
+  camera.instance.position.copy(camera.position)
+
+  view.parallax.eased.x += (view.parallax.target.x - view.parallax.eased.x) * deltaTime * view.parallax.eased.multiplier
+  view.parallax.eased.y += (view.parallax.target.y - view.parallax.eased.y) * deltaTime * view.parallax.eased.multiplier
+  camera.instance.translateX(view.parallax.eased.x)
+  camera.instance.translateY(view.parallax.eased.y)
+
+  camera.instance.rotation.x = camera.rotation.x
+  camera.instance.rotation.y = camera.rotation.y
 
   // Render
-  renderer.render(scene, camera)
+  // renderer.render(scene, camera.instance)
   effectComposer.render()
 
   // Call tick again on the next frame
