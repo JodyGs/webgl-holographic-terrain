@@ -92,9 +92,6 @@ const orbitControls = new OrbitControls(camera.instance, canvas)
 orbitControls.enabled = false
 orbitControls.enableDamping = true
 
-const cameraFolder = gui.addFolder('Camera')
-cameraFolder.add(orbitControls, 'enabled').name('orbitControls')
-
 /**
  * Terrain
  */
